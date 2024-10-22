@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Movements</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+
+    <!-- <link rel="stylesheet" href="https://www.onemap.gov.sg/web-assets/libs/leaflet/leaflet.css" />
+    <script src="https://www.onemap.gov.sg/web-assets/libs/leaflet/onemap-leaflet.js"></script> -->
+
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 70vh; }
+        .car-marker img {
+            width: 8px; /* Adjust vehicle size as needed */
+            height: 18px;
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        mapboxgl.accessToken = '{{ mapbox_token }}';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-2.233086, 53.466022], // Initialize with a central point
+            zoom: 15
+        });
+
+        const markers = {};
+
+        const socket = io();
+        socket.on('update', (vehicles) => {
+            vehicles.forEach(vehicle => {
+                if (!markers[vehicle.id]) {
+                    const el = document.createElement('div');
+                    el.className = 'car-marker';
+                    el.innerHTML = `<img src="/static/car-icon.PNG" alt="Car Icon">`;
+                    markers[vehicle.id] = new mapboxgl.Marker(el)
+                        .setLngLat([vehicle.x, vehicle.y])
+                        .addTo(map);
+                } else {
+                    markers[vehicle.id].setLngLat([vehicle.x, vehicle.y]);
+                }
+                // Rotate the icon to match the vehicle's orientation
+                const img = markers[vehicle.id].getElement().querySelector('img');
+                img.style.transform = `rotate(${vehicle.angle}deg)`;
+            });
+        });
+    </script>
+
+    
+</body>
+</html>
