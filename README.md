@@ -7,6 +7,7 @@ Present your SUMO traffic simulation on the web using Flask
 pip install Flask
 pip install Flask-SocketIO
 pip install traci
+python -m pip install -U ortools
 ```
 ### Step 2
 ```bash
