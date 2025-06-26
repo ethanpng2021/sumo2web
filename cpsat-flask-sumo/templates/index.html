@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUMO Traffic Simulation</title>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 70vh; }
+        .car-marker img {
+            width: 8px;
+            height: 18px;
+            transform-origin: center;
+        }
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .status-stopped { background-color: #dc3545; }
+        .status-running { background-color: #28a745; animation: pulse 1.5s infinite; }
+        .status-stopping { background-color: #ffc107; animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container-fluid">
+
+        <div id="map"></div>
+        
+        <div class="control-panel">
+            <div class="d-flex align-items-center mb-2">
+                <span class="status-indicator status-stopped" id="statusIndicator"></span>
+                <strong>Status:</strong> <span id="statusText">Stopped</span>
+            </div>
+            <div class="d-grid gap-2 d-md-flex">
+                <button id="startBtn" class="btn btn-success btn-sm me-md-1">
+                    <i class="bi bi-play-fill"></i> Start
+                </button>
+                <button id="stopBtn" class="btn btn-danger btn-sm" disabled>
+                    <i class="bi bi-stop-fill"></i> Stop
+                </button>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script>
+        // Initialize Mapbox
+        mapboxgl.accessToken = '{{ mapbox_token }}';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-2.233086, 53.466022],
+            zoom: 15
+        });
+
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        
+        // Vehicle markers
+        const markers = {};
+        
+        // Connect to Socket.IO
+        const socket = io();
+        
+        // Event listeners
+        startBtn.addEventListener('click', startSimulation);
+        stopBtn.addEventListener('click', stopSimulation);
+        
+        // Socket.IO event handlers
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+        
+        socket.on('update', function(vehicles) {
+            vehicles.forEach(vehicle => {
+                if (!markers[vehicle.id]) {
+                    const el = document.createElement('div');
+                    el.className = 'car-marker';
+                    el.innerHTML = `<img src="/static/car-icon.PNG" alt="Car Icon">`;
+                    markers[vehicle.id] = new mapboxgl.Marker(el)
+                    .setLngLat([vehicle.x, vehicle.y])
+                    .addTo(map);
+                } else {
+                    markers[vehicle.id].setLngLat([vehicle.x, vehicle.y]);
+                }
+                
+                const img = markers[vehicle.id].getElement().querySelector('img');
+                img.style.transform = `rotate(${vehicle.angle}deg)`;
+            });
+            
+            // Remove markers for vehicles that are no longer present
+            const currentIds = vehicles.map(v => v.id);
+            Object.keys(markers).forEach(id => {
+                if (!currentIds.includes(id)) {
+                    markers[id].remove();
+                    delete markers[id];
+                }
+            });
+        });
+        
+        socket.on('simulation_status', function(data) {
+            updateStatus(data.status);
+        });
+        
+        socket.on('simulation_error', function(data) {
+            alert(`Simulation error: ${data.message}`);
+            updateStatus('stopped');
+        });
+        
+        // Functions
+        function startSimulation() {
+            socket.emit('start_simulation');
+        }
+        
+        function stopSimulation() {
+            socket.emit('stop_simulation');
+        }
+        
+        function updateStatus(status) {
+            // Clear all status classes
+            statusIndicator.classList.remove('status-stopped', 'status-running', 'status-stopping');
+            
+            switch(status) {
+            case 'running':
+                statusIndicator.classList.add('status-running');
+                statusText.textContent = 'Running';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                break;
+
+            case 'stopping':
+                statusIndicator.classList.add('status-stopping');
+                statusText.textContent = 'Stopping...';
+                startBtn.disabled = true;
+                stopBtn.disabled = true;
+                break;
+
+            case 'stopped':
+                statusIndicator.classList.add('status-stopped');
+                statusText.textContent = 'Stopped';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+
+                // Clear all markers when simulation stops
+                Object.values(markers).forEach(marker => marker.remove());
+                Object.keys(markers).forEach(key => delete markers[key]);
+                break;
+            }
+        }
+    </script>
+</body>
+</html>
+
+<!-- # June 2025. Penrose AGI, Singapore.  -->
