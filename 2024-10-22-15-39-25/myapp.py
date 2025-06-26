@@ -42,7 +42,7 @@ def handle_connect():
 
 @app.route('/')
 def index():
-    return render_template('index.html', mapbox_token="pk.eyJ1IjoiZXRoYW5wbmciLCJhIjoiY2xwZHJjbzZmMTRtNTJrcGI3d3hheGdtcyJ9.wQz89mZO19Sf6XyxhO05ig")
+    return render_template('index.html', mapbox_token="keyinyourown")
 
 if __name__ == "__main__":
     sumo_thread = threading.Thread(target=sumo_simulation)
